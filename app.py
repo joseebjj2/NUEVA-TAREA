@@ -14,17 +14,36 @@ st.set_page_config(
 # ---------------------------------------------------------
 st.sidebar.title("Datos y filtros")
 
-# Carga de archivo (por defecto busca el CSV local o permite subir uno)
+# Subida interactiva del archivo (obligatoria)
 uploaded_file = st.sidebar.file_uploader("Carga el archivo de estudiantes", type=["csv"])
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-else:
-    try:
-        df = pd.read_csv("estudiantes_notas.csv")
-    except FileNotFoundError:
-        st.error("No se encontró el archivo 'estudiantes_notas.csv'. Súbelo usando el botón de arriba o colócalo en el directorio.")
-        st.stop()
+if uploaded_file is None:
+    st.title("Dashboard interactivo de notas")
+    st.info("👈 Por favor, carga tu archivo CSV en la barra lateral para comenzar.")
+    st.stop()
+
+# Lectura del archivo CSV subido
+@st.cache_data
+def cargar_datos(file):
+    data = pd.read_csv(file)
+    # Estandarizar nombres de columnas por seguridad si fuera necesario
+    if "Promedio" not in data.columns:
+        # Calcular promedio si no viene calculado
+        if "nota_1" in data.columns and "nota_2" in data.columns:
+            data["Promedio"] = (data["nota_1"] + data["nota_2"]) / 2
+    if "Asistencia (%)" not in data.columns and "asistencia" in data.columns:
+        data["Asistencia (%)"] = data["asistencia"]
+    if "Sexo" not in data.columns and "sexo" in data.columns:
+        data["Sexo"] = data["sexo"].str.capitalize()
+    if "Sección" not in data.columns and "seccion" in data.columns:
+        data["Sección"] = data["seccion"].str.upper()
+    if "Estudiante" not in data.columns and "estudiante" in data.columns:
+        data["Estudiante"] = data["estudiante"]
+    if "ID" not in data.columns and "id" in data.columns:
+        data["ID"] = data["id"]
+    return data
+
+df = cargar_datos(uploaded_file)
 
 st.sidebar.markdown("---")
 
@@ -66,7 +85,7 @@ df_filtrado = df_filtrado[
 # CUERPO PRINCIPAL
 # ---------------------------------------------------------
 
-# Logotipo institucional en la esquina superior o encabezado lateral
+# Logotipo institucional en la barra lateral
 st.sidebar.markdown("---")
 try:
     st.sidebar.image("logo-vector-universidad-san-sebastian.jpg", use_column_width=True)
@@ -153,3 +172,7 @@ if mostrar_tabla:
     with col_der:
         st.subheader("Estudiantes seleccionados")
         columnas_mostrar = [c for c in ["ID", "Estudiante", "Sexo", "Sección", "Promedio", "Asistencia (%)"] if c in df_filtrado.columns]
+        st.dataframe(df_filtrado[columnas_mostrar], hide_index=True, use_container_width=True)
+
+st.markdown("---")
+st.caption(f"Mostrando {len(df_filtrado)} de {len(df)} estudiantes. La asistencia solo se usa como filtro; la aprobación depende del promedio.")
